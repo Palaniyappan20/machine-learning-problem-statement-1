@@ -412,6 +412,17 @@
             }
         }
 
+        .chart-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
     </style>
 </head>
 <body>
@@ -440,22 +451,32 @@
                 <button type="submit" class="btn btn-primary">Generate Boolean Query</button>
             </form>
         </div>
-
         {% if output %}
         <div class="output-section">
             <div class="output-header">
                 <h2>Generated Boolean Query:</h2>
-                <button class="btn btn-success related-papers">
+                <br>
+                <a href="http://127.0.0.1:8080/" target="_blank" class="btn btn-success related-papers">
                     <span>Find Related Papers</span>
+                    
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
-                </button>
+                </a>
+                <br>
+                <br>
+                <br>
             </div>
-            <p>{{ output }}</p>
+            <div class="output-content">
+                <h2 style={color:solid balck 2px}>{{ output }}</h2>
+            </div>
         </div>
         {% endif %}
-
+ <!-- Chart Container -->
+ <div class="chart-container">
+    <h2>Data Visualization</h2>
+    <canvas id="chart"></canvas>
+</div>
         {% if records %}
     <div class="output-section">
         <h2>Matching Records</h2>
@@ -515,5 +536,54 @@
     </div>
     {% endif %}
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Existing chart data
+        const chartData = {
+            labels: ['Chennai', 'Bangalore', 'Hyderabad', 'Mumbai'],
+            datasets: [{
+                label: 'Cases Count',
+                data: [450, 600, 520, 750],
+                backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                borderColor: 'rgba(52, 152, 219, 1)',
+                borderWidth: 1
+            }]
+        };
+
+        // Chart configuration
+        const config = {
+            type: 'bar', // Change to 'line' for a line chart, etc.
+            data: chartData,
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Cases Count'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'City'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                }
+            }
+        };
+
+        // Initialize the chart
+        const ctx = document.getElementById('chart').getContext('2d');
+        const myChart = new Chart(ctx, config);
+    </script>
 </body>
+
 </html>
