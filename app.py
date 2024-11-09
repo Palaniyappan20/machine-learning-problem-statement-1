@@ -1,97 +1,82 @@
-from flask import Flask, request, render_template
-import pandas as pd
-import re
+from flask import Flask, request, render_template, jsonify
+import requests
+import xml.etree.ElementTree as ET
 
-class MedicalSearchQuery:
-    def __init__(self, file_path):
-        self.df = pd.read_csv(file_path)
-        self.columns = ["Gender", "Symptoms", "Occupation"]
-        self.unique_terms = self.extract_unique_terms()
-
-    def extract_unique_terms(self):
-        unique_terms = {}
-        for col in self.columns:
-            if col in self.df.columns:
-                terms = self.df[col].dropna().str.lower().str.split(',').explode().str.strip()
-                normalized_terms = set()
-                for term in terms:
-                    normalized_terms.add(term)
-                    normalized_terms.add(term.replace(" ", ""))
-                    normalized_terms.add(term.replace(" ", "-"))
-                unique_terms[col] = normalized_terms
-        return unique_terms
-
-    def parse_input(self, input_text):
-        parsed_terms = {col: [] for col in self.columns}
-        input_text = input_text.lower()
-        negations = []
-        for negation in ["not a student", "not in school", "doesn't study", "non-student"]:
-            if negation in input_text:
-                negations.append("student")
-                input_text = input_text.replace(negation, "")
-
-        for col, terms in self.unique_terms.items():
-            for term in terms:
-                pattern = rf"\b{term}\b"
-                if re.search(pattern, input_text, re.IGNORECASE):
-                    parsed_terms[col].append(term.replace("-", " "))
-        
-        parsed_terms = {k: v for k, v in parsed_terms.items() if v}
-        return parsed_terms, negations
-
-    def generate_boolean_query(self, parsed_terms, negations):
-        if not parsed_terms:
-            return "No matching terms found in the input."
-        
-        query_parts = []
-        for _, terms in parsed_terms.items():
-            formatted_terms = " OR ".join([f'"{term}"' for term in terms])
-            query_parts.append(f"({formatted_terms})")
-        
-        if negations:
-            negation_terms = " OR ".join([f'"{negation}"' for negation in negations])
-            query_parts.append(f"NOT ({negation_terms})")
-        
-        final_query = " AND ".join(query_parts)
-        return final_query
-
-    def get_boolean_query(self, input_text):
-        parsed_terms, negations = self.parse_input(input_text)
-        boolean_query = self.generate_boolean_query(parsed_terms, negations)
-        return boolean_query, parsed_terms, negations
-
-    def filter_data(self, parsed_terms, negations):
-        filtered_df = self.df.copy()
-        
-        for col, terms in parsed_terms.items():
-            if col in filtered_df.columns:
-                condition = filtered_df[col].str.contains("|".join(terms), case=False, na=False)
-                filtered_df = filtered_df[condition]
-
-        for negation in negations:
-            if "Occupation" in filtered_df.columns:  # Adjust if negation applies to different columns
-                filtered_df = filtered_df[~filtered_df["Occupation"].str.contains(negation, case=False, na=False)]
-
-        return filtered_df
-
-# Flask App Initialization
 app = Flask(__name__)
 
-# CSV file path
-file_path = "C:/Users/Intel/Documents/med/meddataa.csv"
-search_query = MedicalSearchQuery(file_path)
+# API Base URLs
+PUBMED_API_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+ELASTICSEARCH_URL = "http://localhost:9200"  # Assuming you want to use this later
 
-# Define the routes
-@app.route('/')
+# Fetch papers from PubMed using the Entrez API (esearch)
+def search_pubmed(query):
+    params = {
+        'db': 'pubmed',
+        'term': query,
+        'retmode': 'json',
+        'retmax': 10  # Retrieve only the top 10 results
+    }
+    response = requests.get(PUBMED_API_BASE, params=params)
+    data = response.json()
+    
+    # Return list of PubMed paper IDs
+    return data['esearchresult']['idlist']
+
+# Fetch full paper details from PubMed using efetch
+def get_pubmed_details(paper_ids):
+    base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+    ids = ",".join(paper_ids)
+    
+    params = {
+        'db': 'pubmed',
+        'id': ids,
+        'retmode': 'xml',
+    }
+    
+    response = requests.get(base_url, params=params)
+    data = response.text  # Raw XML response
+    
+    return data
+
+# Parse the XML to extract paper titles and abstracts
+def parse_pubmed_xml(xml_data):
+    root = ET.fromstring(xml_data)
+    papers = []
+    
+    for article in root.findall(".//PubmedArticle"):
+        title = ""
+        abstract = ""
+        
+        # Extract title
+        title_element = article.find(".//ArticleTitle")
+        if title_element is not None:
+            title = title_element.text
+        
+        # Extract abstract
+        abstract_elements = article.findall(".//AbstractText")
+        if abstract_elements:
+            abstract = " ".join([elem.text or "" for elem in abstract_elements])
+        
+        papers.append({'title': title, 'abstract': abstract})
+    
+    return papers
+
+# Define routes
+@app.route("/", methods=["GET", "POST"])
 def home():
-    return render_template('index.html')
+    if request.method == "POST":
+        query = request.form.get("query")
+        
+        # Get paper IDs
+        paper_ids = search_pubmed(query)
+        
+        # Fetch and parse details of the papers
+        xml_data = get_pubmed_details(paper_ids)
+        papers = parse_pubmed_xml(xml_data)
+        
+        return render_template("results.html", query=query, papers=papers)
+    return render_template("index.html")
 
-@app.route('/generate_query', methods=['POST'])
-def generate_query():
-    user_input = request.form['query']
-    boolean_query, parsed_terms, negations = search_query.get_boolean_query(user_input)
-    matching_records = search_query.filter_data(parsed_terms, negations)
-    return render_template('index.html', input=user_input, output=boolean_query, records=matching_records.to_dict(orient='records'))
-
+# Run the Flask application
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(port=8080)

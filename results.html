@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        header img {
+            width: 80px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #004d99;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            max-width: 600px;
+            width: 100%;
+        }
+        li {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0, 77, 153, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        li:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 77, 153, 0.15);
+        }
+        strong {
+            color: #33a1fd;
+            font-weight: bold;
+        }
+        .no-results {
+            color: #777;
+            text-align: center;
+            font-size: 1.2em;
+        }
+        .back-button {
+            margin-top: 20px;
+            padding: 12px 20px;
+            background: #33a1fd;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: background 0.3s ease;
+            box-shadow: 0 4px 12px rgba(51, 161, 253, 0.3);
+        }
+        .back-button:hover {
+            background: #238ae2;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="https://cdn-icons-png.flaticon.com/512/387/387561.png" alt="Medical Icon">
+        <h1>Results for "{{ query }}"</h1>
+    </header>
+    {% if papers %}
+        <ul>
+            {% for paper in papers %}
+                <li>
+                    <strong>Title:</strong> {{ paper.title }}<br>
+                    <strong>Abstract:</strong> {{ paper.abstract }}<br><br>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="no-results">No results found.</p>
+    {% endif %}
+    <a href="/" class="back-button">Search Again</a>
+</body>
+</html>
